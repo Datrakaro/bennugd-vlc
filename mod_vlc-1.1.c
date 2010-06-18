@@ -38,7 +38,6 @@ struct ctx
  
 static char clock[64], cunlock[64], cdata[64];
 static char width[32], height[32], pitch[32];
-static libvlc_exception_t ex;
 static libvlc_instance_t *libvlc;
 static libvlc_media_t *m;
 static libvlc_media_player_t *mp=NULL;
@@ -64,17 +63,6 @@ static char const *vlc_argv[] =
 static int vlc_argc = sizeof(vlc_argv) / sizeof(*vlc_argv);
 static GRAPH *gr=NULL;
  
-static void catch (libvlc_exception_t *ex)
-{
-    if(libvlc_exception_raised(ex))
-    {
-        fprintf(stderr, "Exception: %s\n", libvlc_exception_get_message(ex));
-        exit(1);
-    }
- 
-    libvlc_exception_clear(ex);
-}
- 
 #ifdef VLC09X
 static void * lock(struct ctx *ctx)
 {
@@ -91,6 +79,7 @@ static void lock(struct ctx *ctx, void **pp_ret)
  
 static void unlock(struct ctx *ctx)
 {
+    /* VLC just rendered the video, but we can also render stuff */
     SDL_UnlockSurface(ctx->surf);
 }
 
@@ -106,11 +95,12 @@ static void graph_update()
 /* Checks wether the current video is being played */
 static int video_is_playing() {
     if(mp) {
-        return libvlc_media_player_is_playing(mp, NULL);
+        return libvlc_media_player_is_playing(mp);
     } else {
         return 0;
     }
 }
+
 
 /*********************************************/
 /* Plays the given video with libVLC         */
@@ -148,18 +138,13 @@ static int video_play(INSTANCE *my, int * params)
     /* This could really be done earlier, but we need to know the      */
     /* video width/height before doing it and we'd have to use default */
     /* values for them.                                                */
-    libvlc_exception_init(&ex);
-    libvlc = libvlc_new(vlc_argc, vlc_argv, &ex);
-    catch(&ex);
+    libvlc = libvlc_new(vlc_argc, vlc_argv);
 
     /* The name of the file to play */ 
-    m = libvlc_media_new(libvlc, string_get(params[0]), &ex);
-    catch(&ex);
-    mp = libvlc_media_player_new_from_media(m, &ex);
-    catch(&ex);
+    m = libvlc_media_new_path(libvlc, string_get(params[0]));
+    mp = libvlc_media_player_new_from_media(m);
     libvlc_media_release(m);
-    libvlc_media_player_play(mp, &ex);
-    catch(&ex);
+    libvlc_media_player_play(mp);
 
     /* Discard the file path, as we don't need it */
     string_discard(params[0]);
@@ -183,16 +168,15 @@ static int video_stop(INSTANCE *my, int * params)
     /* Stop the playback and release the media */
     if(mp) {
         if(video_is_playing()) {
-            libvlc_media_player_stop(mp, &ex);
-            catch(&ex);
+            libvlc_media_player_stop(mp);
         }
 
         libvlc_media_player_release(mp);
-        mp = NULL;
+        mp=NULL;
     }
 
     libvlc_release(libvlc);
-
+     
     /* Unload the graph & free the SDL_Surface */
     grlib_unload_map(0, gr->code);
     SDL_FreeSurface(video.surf);
@@ -208,14 +192,10 @@ static int video_pause() {
     if(!mp)
         return -1;
 
-    if(video_is_playing()) {
-        libvlc_media_player_pause(mp, &ex);
-        catch(&ex);
-    }
+    libvlc_media_player_pause(mp);
 
     return 0;
 }
-
 
 /* Returns the length of the film in centisecs   
  * BennuGD uses centisecs by default, instead of
@@ -224,8 +204,7 @@ static int video_pause() {
 static int video_get_length() {
     libvlc_time_t length;   // Length is a 64 bit integer
     if(mp) {
-        length = libvlc_media_player_get_length(mp, &ex)/10;
-        catch(&ex);
+        length = libvlc_media_player_get_length(mp)/10;
         return (int) length;
     } else {
         return -1;
@@ -239,8 +218,7 @@ static int video_get_length() {
 static int video_get_time() {
     if(mp) {
         libvlc_time_t time;   // Time is a 64 bit integer
-        time = libvlc_media_player_get_time(mp, &ex)/10;
-        catch(&ex);
+        time = libvlc_media_player_get_time(mp)/10;
         return (int) time;
     } else {
         return -1;
@@ -256,8 +234,7 @@ static int video_set_time(INSTANCE *my, int *params) {
         libvlc_time_t time;   // Time is a 64 bit integer
         time = (libvlc_time_t)(10*params[0]);
 
-        libvlc_media_player_set_time(mp, time, &ex);
-        catch(&ex);
+        libvlc_media_player_set_time(mp, time);
         return 0;
     } else {
         return -1;
@@ -267,8 +244,7 @@ static int video_set_time(INSTANCE *my, int *params) {
 /* Get the width of the currently being played video */
 static int video_get_width() {
     if(mp) {
-        int width=libvlc_video_get_width(mp, &ex);
-        catch(&ex);
+        int width=libvlc_video_get_width(mp);
 
         return width;
     } else {
@@ -279,8 +255,7 @@ static int video_get_width() {
 /* Get the height of the currently being played video */
 static int video_get_height() {
     if(mp) {
-        int height=libvlc_video_get_height(mp, &ex);
-        catch(&ex);
+        int height=libvlc_video_get_height(mp);
 
         return height;
     } else {
@@ -291,8 +266,7 @@ static int video_get_height() {
 /* Get the current muted/unmuted status */
 static int video_get_mute() {
     if(mp) {
-        int mute=libvlc_audio_get_mute(libvlc, &ex);
-        catch(&ex);
+        int mute=libvlc_audio_get_mute(mp);
 
         return mute;
     } else {
@@ -303,8 +277,7 @@ static int video_get_mute() {
 /* Toggle the muted/unmuted status */
 static int video_mute() {
     if(mp) {
-        libvlc_audio_toggle_mute(libvlc, &ex);
-        catch(&ex);
+        libvlc_audio_toggle_mute(mp);
 
         return 0;
     } else {
@@ -317,8 +290,7 @@ static int video_get_volume() {
     if(mp) {
         int volume=2;
 
-        volume = libvlc_audio_get_volume(libvlc, &ex);
-        catch(&ex);
+        volume = libvlc_audio_get_volume(mp);
 
         return volume;
     } else {
@@ -337,11 +309,8 @@ static int video_set_volume(INSTANCE *my, int *params) {
     if(volume > 200)
         volume = 200;
 
-    if(mp) {
-        libvlc_audio_set_volume(libvlc, volume, &ex);
-        catch(&ex);
-
-    }
+    if(mp)
+        libvlc_audio_set_volume(mp, volume);
 
     return 0;
 }
@@ -350,10 +319,8 @@ static int video_set_volume(INSTANCE *my, int *params) {
 static int video_get_tracks() {
     int n=0;
 
-    if(mp) {
-        n=libvlc_audio_get_track_count(mp, &ex);
-        catch(&ex);
-    }
+    if(mp)
+        n=libvlc_audio_get_track_count(mp);
 
     return n;
 }
@@ -362,10 +329,8 @@ static int video_get_tracks() {
 static int video_get_track() {
     int track=0;
 
-    if(mp) {
-        track = libvlc_audio_get_track(mp, &ex);
-        catch(&ex);
-    }
+    if(mp)
+        track = libvlc_audio_get_track(mp);
 
     return track;
 }
@@ -380,10 +345,8 @@ static int video_set_track(INSTANCE *my, int * params) {
     if(track < 0)
         track = 0;
 
-    if(mp) {
-        libvlc_audio_set_track(mp, track, &ex);
-        catch(&ex);
-    }
+    if(mp)
+        libvlc_audio_set_track(mp, track);
 
     return 0;
 }
@@ -395,7 +358,7 @@ static int video_get_track_description(INSTANCE *my, int * params) {
     if(mp) {
         libvlc_track_description_t *description;
 
-        description = libvlc_audio_get_track_description(mp, &ex);
+        description = libvlc_audio_get_track_description(mp);
         t_descr = string_new(description->psz_name);
         string_use(t_descr);
         libvlc_track_description_release(description);
