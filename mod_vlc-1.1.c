@@ -109,8 +109,10 @@ static int video_play(INSTANCE *my, int * params)
     playing_video = 1;
  
     /* Create the 16bpp graphic that will hold the video          */
-    /* We don't yet support 32bpp surfaces, but this'll work fine */
-    /* in bennugd's 32bpp video mode.                             */
+    /* We don't yet support 32bpp modes, but this'll work fine    */
+    /* in BennuGD's 32bpp video mode.                             */
+    /* It won't work in 8bpp mode and support for it is not       */
+    /* planned, either.                                           */
     video.graph = bitmap_new_syslib(params[1], params[2], 16);
  
     sprintf(clock, "%lld", (long long int)(intptr_t)lock);
@@ -145,18 +147,23 @@ static int video_stop(INSTANCE *my, int * params)
 
     /* Stop the playback and release the media */
     if(mp) {
-        if(video_is_playing()) {
+        if(video_is_playing())
             libvlc_media_player_stop(mp);
-        }
 
         libvlc_media_player_release(mp);
         mp=NULL;
     }
 
-    libvlc_release(libvlc);
+    if(libvlc) {
+        libvlc_release(libvlc);
+        libvlc=NULL;
+    }
      
-    /* Unload the graph & free the SDL_Surface */
-    grlib_unload_map(0, video.graph->code);
+    /* Unload the graph */
+    if(video.graph) {
+        grlib_unload_map(0, video.graph->code);
+        video.graph = NULL;
+    }
 
     /* Release the video playback lock */
     playing_video = 0;        
