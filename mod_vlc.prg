@@ -1,5 +1,5 @@
-import "mod_key"
 import "mod_vlc"
+import "mod_key"
 import "mod_video"
 import "mod_mouse"
 import "mod_say"
@@ -89,4 +89,6 @@ Begin
         end;
         FRAME;
     end;
+    
+    exit();
 End;

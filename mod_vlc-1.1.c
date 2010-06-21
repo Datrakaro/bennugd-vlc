@@ -22,7 +22,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <SDL.h>
 #include <vlc/vlc.h>
 
 /* BennuGD stuff */
@@ -33,7 +32,7 @@
  
 struct ctx
 {
-    SDL_Surface *surf;
+    GRAPH *graph;
 };
  
 static char clock[64], cunlock[64], cdata[64];
@@ -61,34 +60,22 @@ static char const *vlc_argv[] =
     "--vmem-data", cdata,
 };
 static int vlc_argc = sizeof(vlc_argv) / sizeof(*vlc_argv);
-static GRAPH *gr=NULL;
- 
-#ifdef VLC09X
-static void * lock(struct ctx *ctx)
-{
-    SDL_LockSurface(ctx->surf);
-    return ctx->surf->pixels;
-}
-#else
+
 static void lock(struct ctx *ctx, void **pp_ret)
 {
-    SDL_LockSurface(ctx->surf);
-    *pp_ret = ctx->surf->pixels;
+    *pp_ret = ctx->graph->data;
 }
-#endif
  
 static void unlock(struct ctx *ctx)
 {
-    /* VLC just rendered the video, but we can also render stuff */
-    SDL_UnlockSurface(ctx->surf);
 }
 
 /* Mark the graphic as dirty */
 static void graph_update()
 {
-    if(playing_video && gr != NULL && gr->code != -1) {
-        gr->modified = 1;
-        gr->info_flags &=~GI_CLEAN;
+    if(playing_video && video.graph != NULL && video.graph->code != -1) {
+        video.graph->modified = 1;
+        video.graph->info_flags &=~GI_CLEAN;
     }
 }
 
@@ -121,12 +108,10 @@ static int video_play(INSTANCE *my, int * params)
     /* Lock the video playback */
     playing_video = 1;
  
-    /* Create the 16bpp surface that will hold the video          */
+    /* Create the 16bpp graphic that will hold the video          */
     /* We don't yet support 32bpp surfaces, but this'll work fine */
     /* in bennugd's 32bpp video mode.                             */
-    video.surf = SDL_CreateRGBSurface(SDL_SWSURFACE, params[1],
-            params[2], 16, (((Uint32)0xff) >> 3) << 11,
-            (((Uint32)0xff) >> 2) << 5, ((Uint32)0xff) >> 3, 0);
+    video.graph = bitmap_new_syslib(params[1], params[2], 16);
  
     sprintf(clock, "%lld", (long long int)(intptr_t)lock);
     sprintf(cunlock, "%lld", (long long int)(intptr_t)unlock);
@@ -148,15 +133,8 @@ static int video_play(INSTANCE *my, int * params)
 
     /* Discard the file path, as we don't need it */
     string_discard(params[0]);
- 
-    // Create the graphic that will hold the video surface data
-    gr = bitmap_new_ex(0, video.surf->w, video.surf->h,
-        video.surf->format->BitsPerPixel, video.surf->pixels,
-        video.surf->pitch);
-    gr->code = bitmap_next_code();
-    grlib_add_map(0, gr);
     
-    return gr->code;
+    return video.graph->code;
 }
 
 /* Stop the currently being played video and release libVLC */
@@ -178,8 +156,7 @@ static int video_stop(INSTANCE *my, int * params)
     libvlc_release(libvlc);
      
     /* Unload the graph & free the SDL_Surface */
-    grlib_unload_map(0, gr->code);
-    SDL_FreeSurface(video.surf);
+    grlib_unload_map(0, video.graph->code);
 
     /* Release the video playback lock */
     playing_video = 0;        
