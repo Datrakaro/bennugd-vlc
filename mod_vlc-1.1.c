@@ -37,12 +37,12 @@ struct ctx
  
 static char clock[64], cunlock[64], cdata[64];
 static char width[32], height[32], pitch[32];
-static libvlc_instance_t *libvlc;
-static libvlc_media_t *m;
-static libvlc_media_player_t *mp=NULL;
-static struct ctx video;
-static int playing_video=0;
-static char const *vlc_argv[] =
+libvlc_instance_t *libvlc;
+libvlc_media_t *m;
+libvlc_media_player_t *mp=NULL;
+struct ctx video;
+int playing_video=0;
+char const *vlc_argv[] =
 {
     "-q",
 //    "-vvvvv",
@@ -158,7 +158,7 @@ static int video_stop(INSTANCE *my, int * params)
         libvlc_release(libvlc);
         libvlc=NULL;
     }
-     
+
     /* Unload the graph */
     if(video.graph) {
         grlib_unload_map(0, video.graph->code);
@@ -227,8 +227,10 @@ static int video_set_time(INSTANCE *my, int *params) {
 
 /* Get the width of the currently being played video */
 static int video_get_width() {
+    unsigned int width, height;
+
     if(mp) {
-        int width=libvlc_video_get_width(mp);
+        libvlc_video_get_size(mp, 0, &width, &height);
 
         return width;
     } else {
@@ -238,8 +240,10 @@ static int video_get_width() {
 
 /* Get the height of the currently being played video */
 static int video_get_height() {
+    unsigned int width, height;
+
     if(mp) {
-        int height=libvlc_video_get_height(mp);
+        libvlc_video_get_size(mp, 0, &width, &height);
 
         return height;
     } else {

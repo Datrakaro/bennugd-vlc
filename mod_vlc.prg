@@ -7,15 +7,14 @@ import "mod_map"
 import "mod_file"
 import "mod_proc"
 import "mod_timers"
-
-#define SCR_WIDTH  640
-#define SCR_HEIGHT 480
+import "mod_wm"
 
 /* Player main window */
 Process main()
 Private
     string fname="";
     int time=0, delay=30, track=1;
+    int resx=640, resy=480, vwidth=0, vheight=0;
 
 Begin
     // Handle the command line
@@ -32,14 +31,51 @@ Begin
     end
 
     /* Start the graphics subsystem */
-    set_mode(SCR_WIDTH, SCR_HEIGHT, 16);
+    get_desktop_size(&resx, &resy);
+    set_mode(resx, resy, 16, MODE_FULLSCREEN);
 
-    /* Finally play the video and place it in the middle of the screen */
-    graph = video_play(fname, SCR_WIDTH, SCR_HEIGHT);
-    x = SCR_WIDTH/2; y = SCR_HEIGHT/2;
+    /* We'll load the video once to determine its correct size, then reload
+       it at its correct size... */
+    if(video_play(fname, resx, resy) == -1)
+        say("Sorry, I couldn't play your video :(");
+        exit();
+    end;
     while(! video_is_playing()) // Wait for the video to actually start
         FRAME;
     end;
+
+    /* We don't want it to play yet, we just need it to start to be able to
+       query its properties.*/
+    video_pause();
+
+    /* Determine the real size for the video */
+    while(vwidth <= 0 || vheight <= 0)
+        vwidth  = video_get_width();
+        vheight = video_get_height();
+    end;
+
+    say("Video is "+vwidth+"x"+vheight);
+
+    /* Determine the size at which we'll display the vide */
+    if(vwidth/resx <= vheight/resy)
+        vheight = vheight*resx/vwidth;
+        vwidth  = resx;
+    else
+        vwidth  = vwidth*resy/vheight;
+        vheight = resy;
+    end;
+
+    video_stop();
+    
+    say("Will play @ "+vwidth+"x"+vheight);
+
+    // Actually play the video at full size with correct aspect-ratio
+    graph = video_play(fname, vwidth, vheight);
+    x = resx/2; y = resy/2;
+    while(! video_is_playing()) // Wait for the video to actually start
+        FRAME;
+    end;
+    
     while(! key(_esc))
         if(timer[0] > time+delay)
             if(key(_space))
