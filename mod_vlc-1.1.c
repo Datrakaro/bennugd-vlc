@@ -93,6 +93,20 @@ static int video_is_playing() {
 /*********************************************/
 static int video_play(INSTANCE *my, int * params)
 {
+    int bpp;
+    char chroma[5];
+
+    // Get the current screen bpp
+    bpp = screen->format->BitsPerPixel;
+
+    // Set the chroma key, we don't support 8bpp
+    if(bpp == 8)
+        return -1;
+    else if(bpp == 16)
+        snprintf(chroma, 5, "RV16");
+    else if(bpp == 32)
+        snprintf(chroma, 5, "RV32");
+
     /* Ensure we're not playing a video already */
     if(playing_video == 1)
         return -1;
@@ -103,12 +117,10 @@ static int video_play(INSTANCE *my, int * params)
     /* Lock the video playback */
     playing_video = 1;
  
-    /* Create the 16bpp graphic that will hold the video          */
-    /* We don't yet support 32bpp modes, but this'll work fine    */
-    /* in BennuGD's 32bpp video mode.                             */
+    /* Create the graphic that will hold the video                */
     /* It won't work in 8bpp mode and support for it is not       */
     /* planned, either.                                           */
-    video.graph = bitmap_new_syslib(params[1], params[2], 16);
+    video.graph = bitmap_new_syslib(params[1], params[2], bpp);
 
     /* This could really be done earlier, but we need to know the      */
     /* video width/height before doing it and we'd have to use default */
@@ -120,7 +132,8 @@ static int video_play(INSTANCE *my, int * params)
     mp = libvlc_media_player_new_from_media(m);
     libvlc_media_release(m);
     libvlc_video_set_callbacks(mp, lock, unlock, NULL, &video);
-    libvlc_video_set_format(mp, "RV16", params[1], params[2], params[1]*2);
+    libvlc_video_set_format(mp, chroma, params[1], params[2],
+        params[1]*(bpp/8) );
     libvlc_media_player_play(mp);
 
     /* Discard the file path, as we don't need it */
