@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <vlc/vlc.h>
 
@@ -34,9 +35,7 @@ struct ctx
 {
     GRAPH *graph;
 };
- 
-static char clock[64], cunlock[64], cdata[64];
-static char width[32], height[32], pitch[32];
+
 libvlc_instance_t *libvlc;
 libvlc_media_t *m;
 libvlc_media_player_t *mp=NULL;
@@ -49,34 +48,30 @@ char const *vlc_argv[] =
     "--ignore-config", /* Don't use VLC's config files */
     "--no-video-title-show",
     "--sub-autodetect-file",
-    "--vout", "vmem",
     "--plugin-path", "vlc", /* For win32 */
-    "--vmem-width", width,
-    "--vmem-height", height,
-    "--vmem-pitch", pitch,
-    "--vmem-chroma", "RV16",
-    "--vmem-lock", clock,
-    "--vmem-unlock", cunlock,
-    "--vmem-data", cdata,
+    "--no-xlib", /* tell VLC to not use Xlib */
 };
 static int vlc_argc = sizeof(vlc_argv) / sizeof(*vlc_argv);
 
-static void lock(struct ctx *ctx, void **pp_ret)
+static void *lock(void *data, void **p_pixels)
 {
-    *pp_ret = ctx->graph->data;
+    struct ctx *ctx = data;
+
+    // Pointer to the graphic data
+    *p_pixels = ctx->graph->data;
+
+    return NULL;
 }
  
-static void unlock(struct ctx *ctx)
+static void unlock(void *data, void *id, void *const *p_pixels)
 {
-}
+    struct ctx *ctx = data;
+    
+    // Mark the video GRAPH as dirty
+    ctx->graph->modified = 1;
+    ctx->graph->info_flags &=~GI_CLEAN;
 
-/* Mark the graphic as dirty */
-static void graph_update()
-{
-    if(playing_video && video.graph != NULL && video.graph->code != -1) {
-        video.graph->modified = 1;
-        video.graph->info_flags &=~GI_CLEAN;
-    }
+    assert(id == NULL);
 }
 
 /* Checks wether the current video is being played */
@@ -114,13 +109,6 @@ static int video_play(INSTANCE *my, int * params)
     /* It won't work in 8bpp mode and support for it is not       */
     /* planned, either.                                           */
     video.graph = bitmap_new_syslib(params[1], params[2], 16);
- 
-    sprintf(clock, "%lld", (long long int)(intptr_t)lock);
-    sprintf(cunlock, "%lld", (long long int)(intptr_t)unlock);
-    sprintf(cdata, "%lld", (long long int)(intptr_t)&video);
-    sprintf(width, "%i", params[1]);
-    sprintf(height, "%i", params[2]);
-    sprintf(pitch, "%i", params[1] * 2);
 
     /* This could really be done earlier, but we need to know the      */
     /* video width/height before doing it and we'd have to use default */
@@ -131,6 +119,8 @@ static int video_play(INSTANCE *my, int * params)
     m = libvlc_media_new_path(libvlc, string_get(params[0]));
     mp = libvlc_media_player_new_from_media(m);
     libvlc_media_release(m);
+    libvlc_video_set_callbacks(mp, lock, unlock, NULL, &video);
+    libvlc_video_set_format(mp, "RV16", params[1], params[2], params[1]*2);
     libvlc_media_player_play(mp);
 
     /* Discard the file path, as we don't need it */
@@ -376,15 +366,6 @@ DLSYSFUNCS __bgdexport( mod_vlc, functions_exports )[] =
     {"VIDEO_GET_TRACK_DESCRIPTION" , ""     , TYPE_STRING, video_get_track_description  },
 	{ NULL        , NULL , 0         , NULL              }
 };
-
-/* Bigest priority first execute
-   Lowest priority last execute */
-
-HOOK __bgdexport( mod_vlc, handler_hooks )[] =
-{
-    { 4700, graph_update    },
-    {    0, NULL            }
-} ;
  
 char * __bgdexport( mod_vlc, modules_dependency )[] =
 {
