@@ -2,13 +2,13 @@ Source: bennugd-module-vlc
 Priority: optional
 Maintainer: Joseba García Etxebarria <joseba.gar@gmail.com>
 Build-Depends: debhelper (>= 7), bennugd-core-dev, bennugd-modules-dev, libvlc-dev, pkg-config
-Standards-Version: 3.8.3
+Standards-Version: 3.9.1
 Section: libs
 
 Package: bennugd-module-vlc
 Section: libs
 Architecture: i386
-Depends: bennugd-core, bennugd-modules, libvlc2, ${shlibs:Depends}
+Depends: bennugd-core, bennugd-modules, libvlc5, ${shlibs:Depends}
 Description: BennuGD VLC wrapper module
  This package is a Bennu module that allows to you to play mostly any kind
  of video format within BennuGD, using it as a normal graphic.
