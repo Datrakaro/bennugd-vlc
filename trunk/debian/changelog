@@ -1,3 +1,13 @@
+bennugd-module-vlc (1.1.1ppa2) maverick; urgency=low
+  * Fixed libvlc2->libvlc5 dependency.
+ -- Joseba García Etxebarria <joseba.gar@gmail.com>  Sun, 29 Aug 2010 13:29:06 +0200
+
+bennugd-module-vlc (1.1.1ppa1) maverick; urgency=low
+  * Upgraded distro to maverick.
+  * Update the code to support VLC 1.1.1 and over.
+
+ -- Joseba García Etxebarria <joseba.gar@gmail.com>  Sun, 29 Aug 2010 12:50:33 +0200
+
 bennugd-module-vlc (1.1ppa1) lucid; urgency=low
   * Upgraded distro to lucid.
 
