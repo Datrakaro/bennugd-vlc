@@ -19,6 +19,6 @@ fi
 # Strip and remove compilation files
 if [ -f $MODULE.so ]; then
 	rm $MODULE-1.1.o
-#	strip $MODULE.so
+	strip $MODULE.so
 fi
 
