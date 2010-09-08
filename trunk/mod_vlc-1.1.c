@@ -44,7 +44,7 @@ int playing_video=0;
 char const *vlc_argv[] =
 {
     "-q",
-    "-vvvvv",
+//    "-vvvvv",
     "--ignore-config", /* Don't use VLC's config files */
     "--no-video-title-show",
     "--sub-autodetect-file",
