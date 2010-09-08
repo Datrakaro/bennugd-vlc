@@ -9,11 +9,11 @@ if [ -f $MODULE.so ]; then
 fi
 
 # Compile the source code
-gcc -c -Wall $(pkg-config --cflags $DEPS) $MODULE-1.1.c
+gcc -c -Wall $(pkg-config --cflags $DEPS) $MODULE.c
 
 # Link the module
-if [ -f $MODULE-1.1.o ]; then
-	gcc -o$MODULE.so $MODULE-1.1.o -shared $(pkg-config --libs $DEPS) -Wl,-soname -Wl,$MODULE.so
+if [ -f $MODULE.o ]; then
+	gcc -o$MODULE.so $MODULE.o -shared $(pkg-config --libs $DEPS) -Wl,-soname -Wl,$MODULE.so
 fi
 
 # Strip and remove compilation files
